@@ -268,9 +268,13 @@ main (int argc, char *argv[])
                       {
                         if (screenpxl)
                           {
-                            registers[0xF] = 0;
+                            registers[0xF] = 1;
+                            screen[p_x + c][p_y + r] = 0;
                           }
-                        screen[p_x + c][p_y + r] = 1;
+                        else
+                          {
+                            screen[p_x + c][p_y + r] = 1;
+                          }
                       }
                   }
               }
