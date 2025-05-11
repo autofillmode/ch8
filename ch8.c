@@ -29,6 +29,7 @@ void drawScreen (SDL_Renderer *renderer, uint8_t screen[SCREEN_W][SCREEN_H]);
 int
 main (int argc, char *argv[])
 {
+  /* TODO: FX{5,6}5 FX33, FX29 FX0A FX1E FX07 FX1{5,8} EX{9E,A1} */
 
   SDL_Window *gWindow = NULL;
   SDL_Renderer *renderer = NULL;
@@ -120,6 +121,31 @@ main (int argc, char *argv[])
             last_goto = nnn;
           }
           break;
+        case 0x2:
+          {
+            call_stack[stackp] = pc;
+            ++stackp;
+            pc = nnn;
+          }
+          break;
+        case 0x3:
+          {
+            if (registers[x] == nn)
+              pc += 2;
+          }
+          break;
+        case 0x4:
+          {
+            if (registers[x] != nn)
+              pc += 2;
+          }
+          break;
+        case 0x5:
+          {
+            if (registers[x] == registers[y])
+              pc += 2;
+          }
+          break;
         case 0x6:
           {
             registers[x] = nn;
@@ -132,12 +158,96 @@ main (int argc, char *argv[])
             printf ("0x%x: V%x += 0x%x = %x\n", pc, x, nn, registers[x]);
           }
           break;
+        case 0x8:
+          {
+            printf ("0x%x:", pc);
+            switch (n)
+              {
+              case 0x0:
+                {
+                  printf ("V%x = V%x\n", x, y);
+                  registers[x] = registers[y];
+                }
+                break;
+              case 0x1:
+                {
+                  printf ("V%x OR V%x\n", x, y);
+                  registers[x] |= registers[y];
+                }
+                break;
+              case 0x2:
+                {
+                  printf ("V%x =AND V%x\n", x, y);
+                  registers[x] &= registers[y];
+                }
+                break;
+              case 0x3:
+                {
+                  printf ("V%x =XOR V%x\n", x, y);
+                  registers[x] ^= registers[y];
+                }
+                break;
+              case 0x4:
+                {
+                  uint16_t sum;
+                  printf ("V%x += V%x\n", x, y);
+                  sum = registers[x] += registers[y];
+                  if (sum > 255)
+                    registers[0xF] = 1;
+                  else
+                    registers[0xF] = 0;
+                }
+                break;
+              case 0x5:
+                {
+                  printf ("V%x -= V%x\n", x, y);
+                  registers[x] -= registers[y];
+                }
+                break;
+              case 0x6:
+                {
+                  printf ("V%x >> 1\n", x);
+                  registers[x] = registers[x] >> 1;
+                }
+                break;
+              case 0x7:
+                {
+                  printf ("V%x = V%x -V%x\n", x, x, y);
+                  registers[x] = registers[y] - registers[x];
+                }
+                break;
+              case 0xE:
+                {
+                  printf ("V%x << 1\n", x);
+                  registers[x] = registers[x] << 1;
+                }
+                break;
+              }
+          }
+          break;
+        case 0x9:
+          {
+            if (registers[x] != registers[y])
+              pc += 2;
+          }
+          break;
         case 0xA:
           {
             I = nnn;
             printf ("0x%x: I = 0x%x\n", pc, nnn);
           }
           break;
+        case 0xB:
+          {
+            int old = pc;
+            pc = nnn + registers[0x0];
+            printf ("0x%xGOTO-OFFSET pc = 0x%x", old, pc);
+          }
+          break;
+        case 0xC:
+          {
+            registers[x] = (rand () % nn) & nn;
+          }
         case 0xD:
           printf ("0x%x: DISPLAY\n", pc);
           {
