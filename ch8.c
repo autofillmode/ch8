@@ -99,14 +99,14 @@ main (int argc, char *argv[])
         {
         case 0x0:
           {
-            if (n == 0x0)
+            if (nn == 0x00)
               {
                 memset (screen, 0, sizeof (screen));
                 printf ("0x%x: CLS\n", pc); /* clear the screen */
               }
             else if (nn == 0xEE)
               {
-                pc = call_stack[stackp--]; /* return  */
+                pc = call_stack[--stackp]; /* return  */
                 printf ("0x%x: RETURN\n", pc);
               }
           }
