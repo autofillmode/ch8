@@ -169,7 +169,7 @@ main (int argc, char *argv[])
         }
       SDL_Delay (50);
       if (pc == (START_ADDR + romlen))
-        quit = 1;
+        SDL_Quit ();
     }
 }
 void
