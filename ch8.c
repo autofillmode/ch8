@@ -10,14 +10,21 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+/* Memory size */
 #define MEMB 4096
-#define SCREEN_W 640
-#define SCREEN_H 320
+#define WINDOW_W 640 /* For SDL */
+#define WINDOW_H 320 /* For SDL */
+#define SCREEN_W 64
+#define SCREEN_H 32
 #define STACK_SIZE 255
-#define FPS 60
-#define TICKS_PER_FRAME 1000 / FPS
+/* Offset from which ROM is loaded */
+#define START_ADDR 0x200
+/* End of memory */
+#define END_ADDR 0xFFF
+/* Maximum amount for fread() to read */
+#define ROM_MAX (0xFFF - 0x200)
 
-void drawScreen (SDL_Renderer *renderer, uint8_t screen[64][32]);
+void drawScreen (SDL_Renderer *renderer, uint8_t screen[SCREEN_W][SCREEN_H]);
 
 int
 main (int argc, char *argv[])
@@ -25,21 +32,17 @@ main (int argc, char *argv[])
 
   SDL_Window *gWindow = NULL;
   SDL_Renderer *renderer = NULL;
-
-  uint8_t screen[64][32] = { 0 };
-
   FILE *rom;
-  uint16_t I = 512;
-  uint8_t registers[16];
-  uint8_t memory[MEMB];
-  const unsigned int START_ADDR = 0x200;
-  const unsigned int END_ADDR = 0xFFF;
-  unsigned int ROM_SIZE = (END_ADDR - START_ADDR) * sizeof (uint8_t);
-  uint8_t *startptr = memory + START_ADDR;
-  uint16_t call_stack[255], stackp;
-  int rom_len;
-  int pc = START_ADDR;
-  int last_goto;
+
+  uint8_t screen[SCREEN_W][SCREEN_H] = { 0 };
+
+  uint16_t I; /* Index register */
+  uint16_t call_stack[STACK_SIZE], stackp;
+  uint8_t registers[16];                   /* Registers V0 through VF */
+  uint8_t memory[MEMB];                    /* 4096 Bytes of ram */
+  uint8_t *startptr = memory + START_ADDR; /* the ROM is loaded here */
+  int pc = START_ADDR;                     /* The program counter */
+  int last_goto; /* Last goto, useful for not printing inf. loops */
 
   stackp = 0;
 
@@ -56,10 +59,10 @@ main (int argc, char *argv[])
       printf ("couldn't open file %s!", argv[1]);
       exit (EXIT_FAILURE);
     }
-  rom_len = fread (startptr, 1, ROM_SIZE, rom);
+  int romlen = fread (startptr, 1, ROM_MAX, rom);
   fclose (rom);
 
-  SDL_CreateWindowAndRenderer (SCREEN_W, SCREEN_H, SDL_WINDOW_SHOWN, &gWindow,
+  SDL_CreateWindowAndRenderer (WINDOW_W, WINDOW_H, SDL_WINDOW_SHOWN, &gWindow,
                                &renderer);
 
   int quit = 0;
@@ -78,10 +81,11 @@ main (int argc, char *argv[])
       SDL_RenderClear (renderer);
       drawScreen (renderer, screen);
       SDL_RenderPresent (renderer);
-      uint8_t x, y, n, nn, opcode;
-      uint16_t nnn;
 
-      uint16_t instruction = (memory[pc] << 8) | memory[pc + 1];
+      uint8_t x, y, n, nn, opcode;
+      uint16_t nnn, instruction;
+
+      instruction = (memory[pc] << 8) | memory[pc + 1];
       opcode = (instruction & 0xF000) >> 12;
       x = (instruction & 0x0F00) >> 8;
       y = (instruction & 0x00F0) >> 4;
@@ -111,7 +115,7 @@ main (int argc, char *argv[])
           {
             int old = pc;
             pc = nnn;
-            if (nnn != last_goto) /* don't print infinite loops */
+            if (last_goto != nnn) /* don't print infinite loops */
               printf ("0x%x: GOTO 0x%x\n", old, pc);
             last_goto = nnn;
           }
@@ -164,7 +168,7 @@ main (int argc, char *argv[])
           break;
         }
       SDL_Delay (50);
-      if (pc == (START_ADDR + rom_len))
+      if (pc == (START_ADDR + romlen))
         quit = 1;
     }
 }
