@@ -13,12 +13,11 @@
 #define MEMB 4096
 #define SCREEN_W 640
 #define SCREEN_H 320
-#define MAX_ROM_LEN 65536
 #define STACK_SIZE 255
 #define FPS 60
 #define TICKS_PER_FRAME 1000 / FPS
 
-void drawScreen (SDL_Renderer *renderer, int screen[64][32]);
+void drawScreen (SDL_Renderer *renderer, uint8_t screen[64][32]);
 
 int
 main (int argc, char *argv[])
@@ -27,24 +26,20 @@ main (int argc, char *argv[])
   SDL_Window *gWindow = NULL;
   SDL_Renderer *renderer = NULL;
 
-  int screen[64][32] = { 0 };
+  uint8_t screen[64][32] = { 0 };
 
   FILE *rom;
   uint16_t I = 512;
   uint8_t registers[16];
-  unsigned char program[MAX_ROM_LEN];
-  uint8_t pixels[640 * 320];
-  uint8_t memory[MEMB]
-      = { 0xF0, 0x90, 0x90, 0xF0, 0x20, 0x60, 0x20, 0x70, 0xF0, 0xF0, 0x10,
-          0xF0, 0x10, 0xF0, 0xF0, 0xF0, 0x10, 0x90, 0x90, 0xF0, 0x10, 0x10,
-          0xF0, 0x80, 0xF0, 0x10, 0xF0, 0xF0, 0x80, 0xF0, 0x90, 0xF0, 0xF0,
-          0x10, 0x20, 0x40, 0x40, 0xF0, 0x90, 0xF0, 0x90, 0xF0, 0xF0, 0x90,
-          0xF0, 0x10, 0xF0, 0xF0, 0x90, 0xF0, 0x90, 0x90, 0xE0, 0x90, 0xE0,
-          0x90, 0xE0, 0xF0, 0x80, 0x80, 0x80, 0xF0, 0xE0, 0x90, 0x90, 0x90,
-          0xE0, 0xF0, 0x80, 0xF0, 0x80, 0xF0, 0xF0, 0x80, 0xF0, 0x80, 0x80 };
+  uint8_t memory[MEMB];
+  const unsigned int START_ADDR = 0x200;
+  const unsigned int END_ADDR = 0xFFF;
+  unsigned int ROM_SIZE = (END_ADDR - START_ADDR) * sizeof (uint8_t);
+  uint8_t *startptr = memory + START_ADDR;
   uint16_t call_stack[255], stackp;
   int rom_len;
-  int pc;
+  int pc = START_ADDR;
+  int last_goto;
 
   stackp = 0;
 
@@ -61,16 +56,14 @@ main (int argc, char *argv[])
       printf ("couldn't open file %s!", argv[1]);
       exit (EXIT_FAILURE);
     }
-  rom_len = fread (program, 1, MAX_ROM_LEN, rom);
+  rom_len = fread (startptr, 1, ROM_SIZE, rom);
+  fclose (rom);
 
   SDL_CreateWindowAndRenderer (SCREEN_W, SCREEN_H, SDL_WINDOW_SHOWN, &gWindow,
                                &renderer);
 
-  SDL_SetRenderDrawColor (renderer, 0, 0, 0, 0);
-  // SDL_RenderSetScale (renderer, 10.0, 10.0);
   int quit = 0;
   SDL_Event e;
-  int i = 0;
 
   while (!quit)
     {
@@ -85,13 +78,12 @@ main (int argc, char *argv[])
       SDL_RenderClear (renderer);
       drawScreen (renderer, screen);
       SDL_RenderPresent (renderer);
-
       uint8_t x, y, n, nn, opcode;
       uint16_t nnn;
 
-      uint16_t instruction = (program[pc] << 8) | program[pc + 1];
+      uint16_t instruction = (memory[pc] << 8) | memory[pc + 1];
       opcode = (instruction & 0xF000) >> 12;
-      x = (instruction & 0x0FF0) >> 4;
+      x = (instruction & 0x0F00) >> 8;
       y = (instruction & 0x00F0) >> 4;
       n = instruction & 0x000F;
       nn = (instruction & 0x00FF);
@@ -117,8 +109,11 @@ main (int argc, char *argv[])
           break;
         case 0x1:
           {
+            int old = pc;
             pc = nnn;
-            printf ("0x%x: GOTO 0x%x\n", pc, nnn);
+            if (nnn != last_goto) /* don't print infinite loops */
+              printf ("0x%x: GOTO 0x%x\n", old, pc);
+            last_goto = nnn;
           }
           break;
         case 0x6:
@@ -142,49 +137,39 @@ main (int argc, char *argv[])
         case 0xD:
           printf ("0x%x: DISPLAY\n", pc);
           {
-            int p_x = registers[x] % 64;
-            int p_y = registers[y] % 32;
-            int orig_x = p_x;
-            int orig_y = p_y;
+            uint8_t p_x = registers[x] % 64;
+            uint8_t p_y = registers[y] % 32;
             registers[0xF] = 0;
             int index = I;
-            printf ("%d %d ", orig_x, orig_y);
 
-            for (int i = 0; i < n; i++)
+            for (unsigned int r = 0; r < n; ++r)
               {
-                if (orig_y + y == 32)
-                  break;
-                uint8_t sprite = memory[index++];
+                uint8_t sprite = memory[index + r];
 
-                for (int j = 0; j < 8; j++)
+                for (unsigned char c = 0; c < 8; ++c)
                   {
-                    if (orig_x + x == 64)
-                      break;
-                    if (((sprite >> j) & 1) == 1)
+                    uint8_t spritepxl = sprite & (0x80u >> c);
+                    uint8_t screenpxl = screen[p_x + c][p_y + r];
+                    if (spritepxl)
                       {
-                        if (screen[x][y] == 1)
+                        if (screenpxl)
                           {
-                            screen[x][y] = 0;
-                            registers[0xF] = 1;
+                            registers[0xF] = 0;
                           }
-                        if (screen[x][y] != 1)
-                          {
-                            screen[x][y] = 1;
-                          }
+                        screen[p_x + c][p_y + r] = 1;
                       }
-                    x++;
                   }
-                y++;
               }
           }
           break;
         }
-
-      SDL_Delay (500);
+      SDL_Delay (50);
+      if (pc == (START_ADDR + rom_len))
+        quit = 1;
     }
 }
 void
-drawScreen (SDL_Renderer *renderer, int screen[64][32])
+drawScreen (SDL_Renderer *renderer, uint8_t screen[64][32])
 {
   for (int x = 0; x < 64; x++)
     {
