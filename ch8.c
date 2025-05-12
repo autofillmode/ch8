@@ -24,12 +24,14 @@
 /* Maximum amount for fread() to read */
 #define ROM_MAX (0xFFF - 0x200)
 
+#define FNT_START 0x50
+
 void drawScreen (SDL_Renderer *renderer, uint8_t screen[SCREEN_W][SCREEN_H]);
 
 int
 main (int argc, char *argv[])
 {
-  /* TODO: FX{5,6}5 FX33, FX29 FX0A FX1E FX07 FX1{5,8} EX{9E,A1} */
+  /* TODO: FX0A FX07 FX1{5,8} EX{9E,A1} */
 
   SDL_Window *gWindow = NULL;
   SDL_Renderer *renderer = NULL;
@@ -65,7 +67,7 @@ main (int argc, char *argv[])
   };
 
   /* 0x50-0x9F is a common location for the font  */
-  memcpy (startptr + 0x50, fnt, 80);
+  memcpy (startptr + FNT_START, fnt, 80);
 
   stackp = 0;
 
@@ -299,6 +301,52 @@ main (int argc, char *argv[])
                           }
                       }
                   }
+              }
+          }
+          break;
+        case 0xF:
+          {
+            switch (nn) /* second byte */
+              {
+              case 0x1E:
+                {
+                  I += x;
+                }
+                break;
+              case 0x29:
+                {
+                  /* each font takes 5 bytes, that's why * 5 */
+                  I = FNT_START + ((registers[x] & 0xF) * 5);
+                }
+                break;
+              case 0x33:
+                {
+                  int in = registers[x];
+                  int k = 0;
+                  while (in > 0)
+                    {
+                      memory[I + k++] = in % 10;
+                      in /= 10;
+                    }
+                  break;
+                }
+                /* TODO: toggle to count by mutating value of I */
+              case 0x55:
+                {
+                  for (int i = 0; i <= x; i++)
+                    {
+                      memory[I + i] = registers[i];
+                    }
+                }
+                break;
+              case 0x65:
+                {
+                  for (int i = 0; i <= x; i++)
+                    {
+                      registers[i] = memory[I + i];
+                    }
+                }
+                break;
               }
           }
           break;
