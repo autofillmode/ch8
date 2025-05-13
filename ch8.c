@@ -321,15 +321,14 @@ main (int argc, char *argv[])
                 break;
               case 0x33:
                 {
-                  int in = registers[x];
-                  int k = 0;
-                  while (in > 0)
-                    {
-                      memory[I + k++] = in % 10;
-                      in /= 10;
-                    }
-                  break;
+                  uint8_t in = registers[x];
+                  memory[I] = in / 100;
+                  in = in % 100;
+                  memory[I + 1] = in / 10;
+                  in = in % 10;
+                  memory[I + 2] = in;
                 }
+                break;
                 /* TODO: toggle to count by mutating value of I */
               case 0x55:
                 {
