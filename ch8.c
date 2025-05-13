@@ -34,7 +34,8 @@ uint8_t screen[SCREEN_W][SCREEN_H] = { 0 };
 uint8_t memory[MEMB];                    /* 4096 Bytes of ram */
 uint8_t *startptr = memory + START_ADDR; /* the ROM is loaded here */
 int pc = START_ADDR;                     /* The program counter */
-int last_goto;    /* Last goto, useful for not printing inf. loops */
+int last_goto; /* Last goto, useful for not printing inf. loops */
+int old_pc;
 int drawFlag = 0; /* whether any drawing is to be done */
 void drawScreen (SDL_Renderer *renderer, uint8_t screen[SCREEN_W][SCREEN_H]);
 void processCycle (void);
@@ -144,7 +145,12 @@ processCycle (void)
   nn = (instruction & 0x00FF);
   nnn = (instruction & 0x0FFF);
 
+  old_pc = pc; /* pc where instruction was actally called */
   pc += 2;
+
+  /* don't print 1st pc or inf. loops */
+  if (old_pc != 0x200 && last_goto != nnn)
+    printf ("0x%02X:", old_pc);
 
   switch (opcode)
     {
@@ -153,12 +159,12 @@ processCycle (void)
         if (nn == 0x00)
           {
             memset (screen, 0, sizeof (screen));
-            printf ("0x%x: CLS\n", pc); /* clear the screen */
+            printf (" CLS\n"); /* clear the screen */
           }
         else if (nn == 0xEE)
           {
             pc = call_stack[--stackp]; /* return  */
-            printf ("0x%x: RETURN\n", pc);
+            printf ("RET TO %02X\n", pc);
           }
       }
       break;
@@ -167,12 +173,13 @@ processCycle (void)
         int old = pc;
         pc = nnn;
         if (last_goto != nnn) /* don't print infinite loops */
-          printf ("0x%x: GOTO 0x%x\n", old, pc);
+          printf (" GOTO 0x%03X\n", pc);
         last_goto = nnn;
       }
       break;
     case 0x2:
       {
+        printf (" CALL %02X PUSH %02X \n", nnn, pc);
         call_stack[stackp] = pc;
         ++stackp;
         pc = nnn;
@@ -181,66 +188,74 @@ processCycle (void)
     case 0x3:
       {
         if (registers[x] == nn)
-          pc += 2;
+          {
+            printf (" SKIP %02X\n", pc);
+            pc += 2;
+          }
       }
       break;
     case 0x4:
       {
         if (registers[x] != nn)
-          pc += 2;
+          {
+            printf (" SKIP %02X\n", pc);
+            pc += 2;
+          }
       }
       break;
     case 0x5:
       {
         if (registers[x] == registers[y])
-          pc += 2;
+          {
+            printf (" SKIP %02X\n", pc);
+            pc += 2;
+          }
       }
       break;
     case 0x6:
       {
         registers[x] = nn;
-        printf ("0x%x: V%x = 0x%x\n", pc, x, nn);
+        printf (" SET V%X 0x02%X\n", x, nn);
       }
       break;
     case 0x7:
       {
         registers[x] += nn;
-        printf ("0x%x: V%x += 0x%x = %x\n", pc, x, nn, registers[x]);
+        printf (" INCR V%X BY 0x%02X\n", x, nn);
       }
       break;
     case 0x8:
       {
-        printf ("0x%x:", pc);
         switch (n)
           {
           case 0x0:
             {
-              printf ("V%x = V%x\n", x, y);
+              printf (" SET V%X V%X\n", x, y);
               registers[x] = registers[y];
             }
             break;
           case 0x1:
             {
-              printf ("V%x OR V%x\n", x, y);
+              printf (" V%X OR V%X\n", x, y);
               registers[x] |= registers[y];
             }
             break;
           case 0x2:
             {
-              printf ("V%x =AND V%x\n", x, y);
+              printf (" V%X AND V%X\n", x, y);
               registers[x] &= registers[y];
             }
             break;
           case 0x3:
             {
-              printf ("V%x =XOR V%x\n", x, y);
+              printf ("V%X XOR V%X\n", x, y);
               registers[x] ^= registers[y];
             }
             break;
           case 0x4:
             {
               uint16_t sum;
-              printf ("V%x += V%x\n", x, y);
+              printf (" V%X += V%X\n", x, y);
               sum = registers[x] += registers[y];
               if (sum > 255)
                 registers[0xF] = 1;
@@ -250,25 +265,25 @@ processCycle (void)
             break;
           case 0x5:
             {
-              printf ("V%x -= V%x\n", x, y);
+              printf (" V%X -= V%X\n", x, y);
               registers[x] -= registers[y];
             }
             break;
           case 0x6:
             {
-              printf ("V%x >> 1\n", x);
+              printf (" RSHIFT V%X\n", x);
               registers[x] = registers[x] >> 1;
             }
             break;
           case 0x7:
             {
-              printf ("V%x = V%x -V%x\n", x, x, y);
+              printf (" V%X = V%X -V%X\n", x, x, y);
               registers[x] = registers[y] - registers[x];
             }
             break;
           case 0xE:
             {
-              printf ("V%x << 1\n", x);
+              printf (" LSHIFT V%X\n", x);
               registers[x] = registers[x] << 1;
             }
             break;
@@ -284,14 +299,13 @@ processCycle (void)
     case 0xA:
       {
         I = nnn;
-        printf ("0x%x: I = 0x%x\n", pc, nnn);
+        printf (" SET I 0x%02X\n", nnn);
       }
       break;
     case 0xB:
       {
-        int old = pc;
         pc = nnn + registers[0x0];
-        printf ("0x%xGOTO-OFFSET pc = 0x%x", old, pc);
+        printf (" GOTO-OFFSET 0x%02X", pc);
       }
       break;
     case 0xC:
@@ -299,7 +313,7 @@ processCycle (void)
         registers[x] = (rand () % nn) & nn;
       }
     case 0xD:
-      printf ("0x%x: DISPLAY\n", pc);
+      printf (" DISPLAY\n");
       {
         uint8_t p_x = registers[x] % 64;
         uint8_t p_y = registers[y] % 32;
@@ -359,20 +373,26 @@ processCycle (void)
             /* TODO: toggle to count by mutating value of I */
           case 0x55:
             {
+              printf (" FX55\n");
               for (int i = 0; i <= x; i++)
                 {
                   memory[I + i] = registers[i];
+                  printf ("SET 0x%02x V%X\n", i + I, i);
                 }
             }
             break;
           case 0x65:
             {
+              printf (" FX65\n");
               for (int i = 0; i <= x; i++)
                 {
                   registers[i] = memory[I + i];
+                  printf ("SET V%X 0x%02X\n", i, i + I);
                 }
             }
             break;
+          default:
+            printf (" UNDEFINED INSTRUCTION %04X\n", instruction);
           }
       }
       break;
