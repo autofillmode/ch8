@@ -349,7 +349,12 @@ processCycle (void)
             break;
           case 0x29:
             {
-              /* each font takes 5 bytes, that's why * 5 */
+              /* each font takes up 5 bytes, like so:
+               * FNT_START: '0'
+               * FNT_START+(1*5) '1'
+               * FNT_START+(2*5) '2'
+               * ...etc
+               * */
               I = FNT_START + ((registers[x] & 0xF) * 5);
             }
             break;
@@ -363,7 +368,9 @@ processCycle (void)
               memory[I + 2] = in;
             }
             break;
-            /* TODO: toggle to count by mutating value of I */
+            /* TODO: Add an option to toggle counting by mutating I,
+             * for compatibility with older ROMs
+             */
           case 0x55:
             {
               printf (" FX55\n");
