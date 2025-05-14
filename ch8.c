@@ -377,7 +377,7 @@ processCycle (void)
               for (int i = 0; i <= x; i++)
                 {
                   memory[I + i] = registers[i];
-                  printf ("SET 0x%02x V%X\n", i + I, i);
+                  printf ("0x%03X  |SET 0x%02x V%X\n", old_pc, i + I, i);
                 }
             }
             break;
@@ -387,7 +387,7 @@ processCycle (void)
               for (int i = 0; i <= x; i++)
                 {
                   registers[i] = memory[I + i];
-                  printf ("SET V%X 0x%02X\n", i, i + I);
+                  printf ("0x%03X  |SET V%X 0x%02X\n", old_pc, i, i + I);
                 }
             }
             break;
