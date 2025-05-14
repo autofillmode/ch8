@@ -317,7 +317,6 @@ processCycle (void)
       {
         uint8_t p_x = registers[x] % 64;
         uint8_t p_y = registers[y] % 32;
-        registers[0xF] = 0;
         int index = I;
 
         for (unsigned int row = 0; row < n; ++row)
@@ -327,12 +326,9 @@ processCycle (void)
             for (unsigned char col = 0; col < 8; ++col)
               {
                 uint8_t spritepxl = sprite & (0x80u >> col);
-                uint8_t screenpxl = screen[p_x + col][p_y + row];
-                if (screenpxl) /*If current pixel is on, set Flag Register */
-                  {
-                    registers[0xF] = 1;
-                  }
-                screen[p_x + col][p_y + row] ^= spritepxl;
+                uint8_t *screenpxl = &screen[p_x + col][p_y + row];
+                registers[0xF] = *screenpxl; /* 1 if on, 0 if off */
+                *screenpxl ^= spritepxl;
               }
           }
         drawFlag = 1;
