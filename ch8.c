@@ -31,19 +31,23 @@ uint16_t I; /* Index register */
 uint16_t call_stack[STACK_SIZE], stackp;
 uint8_t registers[16]; /* Registers V0 through VF */
 uint8_t screen[SCREEN_W][SCREEN_H] = { 0 };
-uint8_t memory[MEMB];                    /* 4096 Bytes of ram */
+uint8_t memory[MEMB]; /* 4096 Bytes of ram */
+uint8_t keyboard[16]; /* 16 keys */
+uint8_t delay_timer;
+uint8_t sound_timer;
 uint8_t *startptr = memory + START_ADDR; /* the ROM is loaded here */
 int pc = START_ADDR;                     /* The program counter */
 int last_goto; /* Last goto, useful for not printing inf. loops */
 int old_pc;
-int drawFlag = 0; /* whether any drawing is to be done */
+int draw_flag = 0;   /* whether any drawing is to be done */
+int key_pressed = 0; /* value of the last keypress. -1 if no key pressed */
 void drawScreen (SDL_Renderer *renderer, uint8_t screen[SCREEN_W][SCREEN_H]);
 void processCycle (void);
 
 int
 main (int argc, char *argv[])
 {
-  /* TODO: FX0A FX07 FX1{5,8} EX{9E,A1} */
+  /* TODO: FX07 FX1{5,8} */
 
   SDL_Window *gWindow = NULL;
   SDL_Renderer *renderer = NULL;
@@ -104,10 +108,84 @@ main (int argc, char *argv[])
             {
               quit = 1;
             }
+          if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP)
+            {
+              switch (e.key.keysym.scancode)
+                {
+                case SDL_SCANCODE_1:
+                  keyboard[0] = !keyboard[0];
+                  key_pressed = 14;
+                  break;
+                case SDL_SCANCODE_2:
+                  keyboard[1] = !keyboard[1];
+                  key_pressed = 1;
+                  break;
+                case SDL_SCANCODE_3:
+                  keyboard[2] = !keyboard[1];
+                  key_pressed = 2;
+                  break;
+                case SDL_SCANCODE_4:
+                  keyboard[3] = !keyboard[3];
+                  key_pressed = 3;
+                  break;
+                case SDL_SCANCODE_Q:
+                  keyboard[4] = !keyboard[4];
+                  key_pressed = 4;
+                  break;
+                case SDL_SCANCODE_W:
+                  keyboard[5] = !keyboard[5];
+                  key_pressed = 5;
+                  break;
+                case SDL_SCANCODE_E:
+                  keyboard[6] = !keyboard[6];
+                  key_pressed = 6;
+                  break;
+                case SDL_SCANCODE_R:
+                  keyboard[7] = !keyboard[7];
+                  key_pressed = 7;
+                  break;
+                case SDL_SCANCODE_A:
+                  keyboard[8] = !keyboard[8];
+                  key_pressed = 8;
+                  break;
+                case SDL_SCANCODE_S:
+                  keyboard[9] = !keyboard[9];
+                  key_pressed = 9;
+                  break;
+                case SDL_SCANCODE_D:
+                  keyboard[10] = !keyboard[10];
+                  key_pressed = 10;
+                  break;
+                case SDL_SCANCODE_F:
+                  keyboard[11] = !keyboard[11];
+                  key_pressed = 11;
+                  break;
+                case SDL_SCANCODE_Z:
+                  keyboard[12] = !keyboard[12];
+                  key_pressed = 12;
+                  break;
+                case SDL_SCANCODE_X:
+                  keyboard[13] = !keyboard[13];
+                  key_pressed = 13;
+                  break;
+                case SDL_SCANCODE_C:
+                  keyboard[14] = !keyboard[14];
+                  key_pressed = 14;
+                  break;
+                case SDL_SCANCODE_V:
+                  keyboard[15] = !keyboard[15];
+                  key_pressed = 15;
+                  break;
+                default:
+                  break;
+                }
+              if (e.key.type == SDL_KEYUP)
+                key_pressed = -1; /* not pressed if up */
+            }
         }
       processCycle ();
       SDL_RenderClear (renderer);
-      if (drawFlag)
+      if (draw_flag)
         drawScreen (renderer, screen);
       SDL_RenderPresent (renderer);
       SDL_Delay (5);
@@ -331,13 +409,47 @@ processCycle (void)
                 *screenpxl ^= spritepxl;
               }
           }
-        drawFlag = 1;
+        draw_flag = 1;
       }
       break;
+
+    case 0xe:
+      {
+        switch (nn)
+          {
+          case 0x9E:
+            {
+              if (keyboard[x])
+                pc += 2;
+            }
+            break;
+          case 0xA1:
+            {
+              if (!keyboard[x])
+                pc += 2;
+            }
+            break;
+          }
+      }
+
     case 0xF:
       {
         switch (nn) /* second byte */
           {
+          case 0x0A:
+            {
+              if (key_pressed != -1)
+                {
+                  registers[x] = key_pressed;
+                }
+              else
+                {
+                  /* if no key pressed keep looping */
+                  pc -= 2;
+                }
+              break;
+            }
+            break;
           case 0x1E:
             {
               I += x;
