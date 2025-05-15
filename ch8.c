@@ -351,7 +351,7 @@ processCycle (void)
                * FNT_START+(2*5) '2'
                * ...etc
                * */
-              I = FNT_START + ((registers[x] & 0xF) * 5);
+              I = FNT_START + ((registers[x]) * 5);
             }
             break;
           case 0x33:
