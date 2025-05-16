@@ -9,6 +9,7 @@
 #include <SDL2/SDL_video.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <time.h>
 
 /* Memory size */
 #define MEMB 4096
@@ -388,8 +389,12 @@ processCycle (void)
       break;
     case 0xC:
       {
-        registers[x] = (rand () % nn) & nn;
+        srandom (time (NULL));
+        int rand = (random ()) & nn;
+        registers[x] = rand;
+        printf (" RAND: nn = %d, V%x = %d\n", nn, x, rand);
       }
+      break;
     case 0xD:
       printf (" DISPLAY\n");
       {
@@ -412,7 +417,6 @@ processCycle (void)
         draw_flag = 1;
       }
       break;
-
     case 0xe:
       {
         switch (nn)
@@ -432,7 +436,6 @@ processCycle (void)
           }
       }
       break;
-
     case 0xF:
       {
         switch (nn) /* second byte */
@@ -503,6 +506,7 @@ processCycle (void)
           default:
             printf (" UNDEFINED INSTRUCTION %04X\n", instruction);
           }
+        break;
       }
       break;
     }
