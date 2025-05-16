@@ -431,6 +431,7 @@ processCycle (void)
             break;
           }
       }
+      break;
 
     case 0xF:
       {
