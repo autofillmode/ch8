@@ -18,14 +18,12 @@
 #define SCREEN_W 64
 #define SCREEN_H 32
 #define STACK_SIZE 255
-/* Offset from which ROM is loaded */
 #define START_ADDR 0x200
-/* End of memory */
 #define END_ADDR 0xFFF
-/* Maximum amount for fread() to read */
 #define ROM_MAX (0xFFF - 0x200)
-
 #define FNT_START 0x50
+#define FPS 60
+#define FRAMETIME (1000 / FPS)
 
 /* Globals for simplicity */
 uint16_t I; /* Index register */
@@ -48,7 +46,6 @@ void processCycle (void);
 int
 main (int argc, char *argv[])
 {
-  /* TODO: FX07 FX1{5,8} */
 
   SDL_Window *gWindow = NULL;
   SDL_Renderer *renderer = NULL;
@@ -103,6 +100,9 @@ main (int argc, char *argv[])
 
   while (!quit)
     {
+
+      uint32_t frame_start = SDL_GetTicks ();
+
       while (SDL_PollEvent (&e) != 0)
         {
           if (e.type == SDL_QUIT)
@@ -187,9 +187,15 @@ main (int argc, char *argv[])
       processCycle ();
       SDL_RenderClear (renderer);
       if (draw_flag)
-        drawScreen (renderer, screen);
+        {
+          drawScreen (renderer, screen);
+        }
       SDL_RenderPresent (renderer);
-      SDL_Delay (5);
+
+      uint32_t frame_time = SDL_GetTicks () - frame_start;
+
+      if (frame_time < FRAMETIME)
+        SDL_Delay (FRAMETIME - frame_time);
       if (pc == (START_ADDR + romlen))
         SDL_Quit ();
     }
@@ -227,10 +233,6 @@ processCycle (void)
   old_pc = pc; /* pc where instruction was actally called */
   pc += 2;
 
-  /* don't print 1st pc or inf. loops */
-  if (old_pc != 0x200 && last_goto != nnn)
-    printf ("0x%02X:", old_pc);
-
   switch (opcode)
     {
     case 0x0:
@@ -238,12 +240,10 @@ processCycle (void)
         if (nn == 0x00)
           {
             memset (screen, 0, sizeof (screen));
-            printf (" CLS\n"); /* clear the screen */
           }
         else if (nn == 0xEE)
           {
             pc = call_stack[--stackp]; /* return  */
-            printf ("RET TO %02X\n", pc);
           }
       }
       break;
@@ -251,14 +251,11 @@ processCycle (void)
       {
         int old = pc;
         pc = nnn;
-        if (last_goto != nnn) /* don't print infinite loops */
-          printf (" GOTO 0x%03X\n", pc);
         last_goto = nnn;
       }
       break;
     case 0x2:
       {
-        printf (" CALL %02X PUSH %02X \n", nnn, pc);
         call_stack[stackp] = pc;
         ++stackp;
         pc = nnn;
@@ -268,7 +265,6 @@ processCycle (void)
       {
         if (registers[x] == nn)
           {
-            printf (" SKIP %02X\n", pc);
             pc += 2;
           }
       }
@@ -277,7 +273,6 @@ processCycle (void)
       {
         if (registers[x] != nn)
           {
-            printf (" SKIP %02X\n", pc);
             pc += 2;
           }
       }
@@ -286,7 +281,6 @@ processCycle (void)
       {
         if (registers[x] == registers[y])
           {
-            printf (" SKIP %02X\n", pc);
             pc += 2;
           }
       }
@@ -294,13 +288,11 @@ processCycle (void)
     case 0x6:
       {
         registers[x] = nn;
-        printf (" SET V%X 0x02%X\n", x, nn);
       }
       break;
     case 0x7:
       {
         registers[x] += nn;
-        printf (" INCR V%X BY 0x%02X\n", x, nn);
       }
       break;
     case 0x8:
@@ -309,32 +301,27 @@ processCycle (void)
           {
           case 0x0:
             {
-              printf (" SET V%X V%X\n", x, y);
               registers[x] = registers[y];
             }
             break;
           case 0x1:
             {
-              printf (" V%X OR V%X\n", x, y);
               registers[x] |= registers[y];
             }
             break;
           case 0x2:
             {
-              printf (" V%X AND V%X\n", x, y);
               registers[x] &= registers[y];
             }
             break;
           case 0x3:
             {
-              printf ("V%X XOR V%X\n", x, y);
               registers[x] ^= registers[y];
             }
             break;
           case 0x4:
             {
               uint16_t sum;
-              printf (" V%X += V%X\n", x, y);
               sum = registers[x] += registers[y];
               if (sum > 255)
                 registers[0xF] = 1;
@@ -344,25 +331,21 @@ processCycle (void)
             break;
           case 0x5:
             {
-              printf (" V%X -= V%X\n", x, y);
               registers[x] -= registers[y];
             }
             break;
           case 0x6:
             {
-              printf (" RSHIFT V%X\n", x);
               registers[x] = registers[x] >> 1;
             }
             break;
           case 0x7:
             {
-              printf (" V%X = V%X -V%X\n", x, x, y);
               registers[x] = registers[y] - registers[x];
             }
             break;
           case 0xE:
             {
-              printf (" LSHIFT V%X\n", x);
               registers[x] = registers[x] << 1;
             }
             break;
@@ -378,13 +361,11 @@ processCycle (void)
     case 0xA:
       {
         I = nnn;
-        printf (" SET I 0x%02X\n", nnn);
       }
       break;
     case 0xB:
       {
         pc = nnn + registers[0x0];
-        printf (" GOTO-OFFSET 0x%02X", pc);
       }
       break;
     case 0xC:
@@ -392,11 +373,9 @@ processCycle (void)
         srandom (time (NULL));
         int rand = (random ()) & nn;
         registers[x] = rand;
-        printf (" RAND: nn = %d, V%x = %d\n", nn, x, rand);
       }
       break;
     case 0xD:
-      printf (" DISPLAY\n");
       {
         uint8_t p_x = registers[x] % 64;
         uint8_t p_y = registers[y] % 32;
@@ -485,29 +464,20 @@ processCycle (void)
              */
           case 0x55:
             {
-              printf (" FX55\n");
               for (int i = 0; i <= x; i++)
                 {
                   memory[I + i] = registers[i];
-                  printf ("0x%03X  |SET 0x%02x V%X\n", old_pc, i + I, i);
                 }
             }
             break;
           case 0x65:
             {
-              printf (" FX65\n");
               for (int i = 0; i <= x; i++)
                 {
                   registers[i] = memory[I + i];
-                  printf ("0x%03X  |SET V%X 0x%02X\n", old_pc, i, i + I);
                 }
             }
-            break;
-          default:
-            printf (" UNDEFINED INSTRUCTION %04X\n", instruction);
           }
-        break;
       }
-      break;
     }
 }
