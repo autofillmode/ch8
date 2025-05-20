@@ -178,9 +178,11 @@ main(int argc, char *argv[])
 		}
 		processCycle();
 		SDL_RenderClear(renderer);
+
 		if (draw_flag) {
 			drawScreen(renderer, screen);
 		}
+
 		SDL_RenderPresent(renderer);
 
 		uint32_t frame_time = SDL_GetTicks() - frame_start;
@@ -191,6 +193,7 @@ main(int argc, char *argv[])
 			SDL_Quit();
 	}
 }
+
 void
 drawScreen(SDL_Renderer *renderer, uint8_t screen[64][32])
 {
@@ -228,7 +231,7 @@ processCycle(void)
 		if (nn == 0x00) {
 			memset(screen, 0, sizeof(screen));
 		} else if (nn == 0xEE) {
-			pc = call_stack[--stackp]; /* return  */
+			pc = call_stack[--stackp];
 		}
 	} break;
 	case 0x1: {
@@ -263,7 +266,7 @@ processCycle(void)
 		registers[x] += nn;
 	} break;
 	case 0x8: {
-		switch (n) {
+		switch (n) { /* Inline switch on last nibble */
 		case 0x0: {
 			registers[x] = registers[y];
 		} break;
@@ -296,7 +299,7 @@ processCycle(void)
 		case 0xE: {
 			registers[x] = registers[x] << 1;
 		} break;
-		}
+		} /* End inline switch */
 	} break;
 	case 0x9: {
 		if (registers[x] != registers[y])
@@ -333,19 +336,17 @@ processCycle(void)
 		draw_flag = 1;
 	} break;
 	case 0xe: {
-		switch (nn) {
-		case 0x9E: {
+		if (nn == 0x9E) {
 			if (keyboard[x])
 				pc += 2;
-		} break;
-		case 0xA1: {
+		}
+		if (nn == 0xA1) {
 			if (!keyboard[x])
 				pc += 2;
-		} break;
 		}
 	} break;
 	case 0xF: {
-		switch (nn) /* second byte */
+		switch (nn) /* inline switch on second byte */
 		{
 		case 0x0A: {
 			if (key_pressed != -1) {
@@ -354,18 +355,11 @@ processCycle(void)
 				/* if no key pressed keep looping */
 				pc -= 2;
 			}
-			break;
 		} break;
 		case 0x1E: {
 			I += x;
 		} break;
 		case 0x29: {
-			/* each font takes up 5 bytes, like so:
-               * FNT_START: '0'
-               * FNT_START+(1*5) '1'
-               * FNT_START+(2*5) '2'
-               * ...etc
-               * */
 			I = FNT_START + ((registers[x]) * 5);
 		} break;
 		case 0x33: {
@@ -376,9 +370,6 @@ processCycle(void)
 			in = in % 10;
 			memory[I + 2] = in;
 		} break;
-			/* TODO: Add an option to toggle counting by mutating I,
-             * for compatibility with older ROMs
-             */
 		case 0x55: {
 			for (int i = 0; i <= x; i++) {
 				memory[I + i] = registers[i];
@@ -389,7 +380,7 @@ processCycle(void)
 				registers[i] = memory[I + i];
 			}
 		}
-		}
+		} /* End inline switch */
 	}
 	}
 }
