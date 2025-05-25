@@ -228,7 +228,7 @@ processCycle(void)
 
 	switch (opcode) {
 	case 0x0: {
-		if (nn == 0x00) {
+		if (nn == 0xE0) {
 			memset(screen, 0, sizeof(screen));
 		} else if (nn == 0xEE) {
 			pc = call_stack[--stackp];
