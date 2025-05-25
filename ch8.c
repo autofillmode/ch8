@@ -244,41 +244,41 @@ processCycle(void)
 		++stackp;
 		pc = nnn;
 	} break;
-	case 0x3: {
+	case 0x3:
 		if (registers[x] == nn) {
 			pc += 2;
 		}
-	} break;
-	case 0x4: {
+		break;
+	case 0x4:
 		if (registers[x] != nn) {
 			pc += 2;
 		}
-	} break;
-	case 0x5: {
+		break;
+	case 0x5:
 		if (registers[x] == registers[y]) {
 			pc += 2;
 		}
-	} break;
-	case 0x6: {
+		break;
+	case 0x6:
 		registers[x] = nn;
-	} break;
-	case 0x7: {
+		break;
+	case 0x7:
 		registers[x] += nn;
-	} break;
+		break;
 	case 0x8: {
 		switch (n) { /* Inline switch on last nibble */
-		case 0x0: {
+		case 0x0:
 			registers[x] = registers[y];
-		} break;
-		case 0x1: {
+			break;
+		case 0x1:
 			registers[x] |= registers[y];
-		} break;
-		case 0x2: {
+			break;
+		case 0x2:
 			registers[x] &= registers[y];
-		} break;
-		case 0x3: {
+			break;
+		case 0x3:
 			registers[x] ^= registers[y];
-		} break;
+			break;
 		case 0x4: {
 			uint16_t sum;
 			sum = registers[x] += registers[y];
@@ -287,30 +287,30 @@ processCycle(void)
 			else
 				registers[0xF] = 0;
 		} break;
-		case 0x5: {
+		case 0x5:
 			registers[x] -= registers[y];
-		} break;
-		case 0x6: {
+			break;
+		case 0x6:
 			registers[x] = registers[x] >> 1;
-		} break;
-		case 0x7: {
+			break;
+		case 0x7:
 			registers[x] = registers[y] - registers[x];
-		} break;
-		case 0xE: {
+			break;
+		case 0xE:
 			registers[x] = registers[x] << 1;
-		} break;
+			break;
 		} /* End inline switch */
 	} break;
 	case 0x9: {
 		if (registers[x] != registers[y])
 			pc += 2;
 	} break;
-	case 0xA: {
+	case 0xA:
 		I = nnn;
-	} break;
-	case 0xB: {
+		break;
+	case 0xB:
 		pc = nnn + registers[0x0];
-	} break;
+		break;
 	case 0xC: {
 		srandom(time(NULL));
 		int rand = (random()) & nn;
@@ -356,12 +356,12 @@ processCycle(void)
 				pc -= 2;
 			}
 		} break;
-		case 0x1E: {
+		case 0x1E:
 			I += x;
-		} break;
-		case 0x29: {
+			break;
+		case 0x29:
 			I = FNT_START + ((registers[x]) * 5);
-		} break;
+			break;
 		case 0x33: {
 			uint8_t in = registers[x];
 			memory[I] = in / 100;
@@ -370,17 +370,16 @@ processCycle(void)
 			in = in % 10;
 			memory[I + 2] = in;
 		} break;
-		case 0x55: {
+		case 0x55:
 			for (int i = 0; i <= x; i++) {
 				memory[I + i] = registers[i];
 			}
-		} break;
-		case 0x65: {
+			break;
+		case 0x65:
 			for (int i = 0; i <= x; i++) {
 				registers[i] = memory[I + i];
 			}
 		}
-		} /* End inline switch */
-	}
+	} /* End inline switch */
 	}
 }
